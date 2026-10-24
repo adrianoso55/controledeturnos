@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Motoboy Pro - Fluxo de Turnos e Acumulado</title>
+    <!-- Web App / PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            500: '#f97316',
+                            600: '#ea580c',
+                            700: '#c2410c',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        input, select, textarea {
+            user-select: text;
+        }
+        .pulse-live {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col pb-20 md:pb-6">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-30 px-4 py-3">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-tr from-orange-600 to-amber-500 p-2.5 rounded-2xl text-white shadow-lg shadow-orange-600/20">
+                    <i class="fa-solid fa-motorcycle text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-black text-lg leading-tight tracking-wide text-white flex items-center gap-1.5">
+                        MOTOBOY <span class="text-orange-500">PRO</span>
+                    </h1>
+                    <p class="text-[11px] text-slate-400 font-semibold uppercase tracking-wider">Controle em Tempo Real</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="openSettingsModal()" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition border border-slate-700/60" title="Configurações e Extração">
+                    <i class="fa-solid fa-gear text-base"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-4xl mx-auto w-full px-4 pt-4 flex-1 space-y-5">
+
+        <!-- Navigation Tabs -->
+        <div class="flex rounded-2xl bg-slate-900 p-1.5 border border-slate-800">
+            <button id="tab-btn-shift" onclick="switchTab('shift')" class="flex-1 py-3 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 bg-orange-600 text-white shadow-md">
+                <i class="fa-solid fa-play"></i>
+                <span>TURNO ATIVO</span>
+            </button>
+            <button id="tab-btn-reports" onclick="switchTab('reports')" class="flex-1 py-3 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-chart-column"></i>
+                <span>RELATÓRIOS</span>
+            </button>
+            <button id="tab-btn-history" onclick="switchTab('history')" class="flex-1 py-3 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 text-slate-400 hover:text-white">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>HISTÓRICO</span>
+            </button>
+        </div>
+
+        <!-- SECTION 1: REAL-TIME SHIFT MANAGER -->
+        <section id="section-shift" class="space-y-4">
+
+            <!-- STATE A: NO ACTIVE SHIFT (START SHIFT CARD) -->
+            <div id="card-start-shift" class="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-5 shadow-xl">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h2 class="text-base font-extrabold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-flag-checkered text-orange-500"></i> Iniciar Novo Turno
+                    </h2>
+                    <span id="display-current-date" class="text-xs text-slate-400 font-bold bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                        --/--/----
+                    </span>
+                </div>
+
+                <!-- Shift Selection -->
+                <div>
+                    <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2">
+                        1. Selecione o Turno
+                    </label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" onclick="selectShiftType('Almoço')" id="btn-shift-almoco" class="shift-type-btn py-3 px-2 rounded-2xl border font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition bg-orange-600/20 border-orange-500 text-orange-400">
+                            <i class="fa-solid fa-sun text-base"></i>
+                            <span>Almoço</span>
+                        </button>
+                        <button type="button" onclick="selectShiftType('Jantar')" id="btn-shift-jantar" class="shift-type-btn py-3 px-2 rounded-2xl border font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition bg-slate-800 border-slate-700 text-slate-400 hover:text-white">
+                            <i class="fa-solid fa-moon text-base"></i>
+                            <span>Jantar</span>
+                        </button>
+                        <button type="button" onclick="selectShiftType('Outro')" id="btn-shift-outro" class="shift-type-btn py-3 px-2 rounded-2xl border font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition bg-slate-800 border-slate-700 text-slate-400 hover:text-white">
+                            <i class="fa-solid fa-bolt text-base"></i>
+                            <span>Outro</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Starting KM Input -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-400">
+                            2. KM Inicial da Moto
+                        </label>
+                        <span id="last-km-hint" class="text-[11px] text-orange-400 font-semibold"></span>
+                    </div>
+                    <div class="relative">
+                        <input type="number" step="0.1" id="input-km-start" placeholder="Ex: 45200" class="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3.5 text-white font-extrabold text-lg focus:outline-none focus:border-orange-500">
+                        <span class="absolute right-4 top-3.5 text-xs text-slate-500 font-bold">KM</span>
+                    </div>
+                </div>
+
+                <!-- Cumulative Alert Banner for Evening Shift -->
+                <div id="cumulative-notice" class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3.5 flex items-start gap-3">
+                    <i class="fa-solid fa-circle-info text-amber-400 text-base mt-0.5 shrink-0"></i>
+                    <p class="text-xs text-amber-200/90 leading-relaxed font-medium">
+                        <strong class="text-amber-400">Regra do Acumulado:</strong> No final do turno (Jantar/Noite), você digitará o valor total que o app mostra. O sistema calculará automaticamente o ganho exato deste turno!
+                    </p>
+                </div>
+
+                <!-- Start Action Button -->
+                <button onclick="confirmStartShiftModal()" class="w-full py-4 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white font-black text-base rounded-2xl shadow-lg shadow-orange-600/30 transition active:scale-[0.98] flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-play text-sm"></i>
+                    <span>INICIAR TURNO AGORA</span>
+                </button>
+            </div>
+
+
+            <!-- STATE B: SHIFT CURRENTLY RUNNING (LIVE TIMER) -->
+            <div id="card-running-shift" class="hidden bg-slate-900 border border-orange-500/50 rounded-3xl p-5 space-y-5 shadow-2xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 bg-orange-600 text-white text-[10px] font-black uppercase px-4 py-1 rounded-bl-2xl tracking-widest flex items-center gap-1.5 pulse-live">
+                    <span class="w-2 h-2 rounded-full bg-white"></span> TURNO RODANDO
+                </div>
+
+                <div class="space-y-1">
+                    <span id="running-shift-title" class="text-xs font-black uppercase tracking-widest text-orange-400">TURNO DO ALMOÇO</span>
+                    <h2 class="text-2xl font-black text-white" id="running-shift-date">--/--/----</h2>
+                </div>
+
+                <!-- Live Timer & Stats Card -->
+                <div class="bg-slate-950 border border-slate-800 rounded-2xl p-4 grid grid-cols-2 gap-3 text-center">
+                    <div class="p-2 border-r border-slate-800">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Tempo Decorrido</span>
+                        <span id="live-timer" class="text-2xl font-black text-amber-400 tracking-wider">00:00:00</span>
+                    </div>
+                    <div class="p-2">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Iniciado às</span>
+                        <span id="live-start-time" class="text-2xl font-black text-slate-200">00:00</span>
+                    </div>
+                </div>
+
+                <div class="bg-slate-950/60 rounded-2xl p-3 border border-slate-800/80 flex items-center justify-between text-xs">
+                    <span class="text-slate-400 font-medium">KM Inicial Registrado:</span>
+                    <span id="live-km-start" class="font-extrabold text-cyan-400 text-sm">0 KM</span>
+                </div>
+
+                <!-- Stop Action Button -->
+                <button onclick="openFinishShiftModal()" class="w-full py-4 bg-rose-600 hover:bg-rose-500 text-white font-black text-base rounded-2xl shadow-lg shadow-rose-600/30 transition active:scale-[0.98] flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-flag-checkered"></i>
+                    <span>FINALIZAR TURNO E LANÇAR GANHOS</span>
+                </button>
+            </div>
+
+            <!-- Summary Card of Today's Completed Shifts -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 space-y-3">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-list-check text-orange-500"></i> Turnos Concluídos Hoje
+                    </h3>
+                    <span id="today-shifts-count" class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">0 turnos</span>
+                </div>
+
+                <div id="today-shifts-list" class="space-y-2">
+                    <!-- Dynamic Shifts appended here -->
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- SECTION 2: REPORTS & ANALYTICS -->
+        <section id="section-reports" class="hidden space-y-5">
+            <!-- Period Filter Pills -->
+            <div class="flex flex-wrap gap-2 pb-1 overflow-x-auto">
+                <button onclick="setReportPeriod('today')" id="period-today" class="period-btn px-4 py-2 rounded-xl text-xs font-extrabold transition bg-orange-600 text-white">Hoje</button>
+                <button onclick="setReportPeriod('week')" id="period-week" class="period-btn px-4 py-2 rounded-xl text-xs font-extrabold transition bg-slate-800 text-slate-300 hover:bg-slate-700">Esta Semana</button>
+                <button onclick="setReportPeriod('month')" id="period-month" class="period-btn px-4 py-2 rounded-xl text-xs font-extrabold transition bg-slate-800 text-slate-300 hover:bg-slate-700">Este Mês</button>
+                <button onclick="setReportPeriod('year')" id="period-year" class="period-btn px-4 py-2 rounded-xl text-xs font-extrabold transition bg-slate-800 text-slate-300 hover:bg-slate-700">Este Ano</button>
+                <button onclick="setReportPeriod('all')" id="period-all" class="period-btn px-4 py-2 rounded-xl text-xs font-extrabold transition bg-slate-800 text-slate-300 hover:bg-slate-700">Tudo</button>
+            </div>
+
+            <!-- KPI Metric Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Ganhos Totais</span>
+                    <span id="rep-total-ganhos" class="text-xl font-black text-emerald-400">R$ 0,00</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">KM Rodados</span>
+                    <span id="rep-total-km" class="text-xl font-black text-cyan-400">0 km</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Horas Trabalhadas</span>
+                    <span id="rep-total-horas" class="text-xl font-black text-amber-400">0h 0m</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Rendimento/Hora</span>
+                    <span id="rep-rendimento-hora" class="text-xl font-black text-purple-400">R$ 0,00/h</span>
+                </div>
+            </div>
+
+            <!-- WhatsApp Share Banner -->
+            <button onclick="shareWhatsAppReport()" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2.5 transition text-sm">
+                <i class="fa-brands fa-whatsapp text-lg"></i>
+                <span>Enviar Resumo do Dia/Período no WhatsApp</span>
+            </button>
+
+            <!-- Period Breakdown Comparison Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-4">
+                <h3 class="text-sm font-extrabold text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-scale-balanced text-orange-500"></i> Comparativo: Almoço vs. Jantar
+                </h3>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <!-- Almoco Card -->
+                    <div class="bg-slate-950 p-4 rounded-2xl border border-orange-500/20 space-y-2">
+                        <div class="flex items-center gap-1.5 text-xs font-black text-orange-400">
+                            <i class="fa-solid fa-sun"></i> ALMOÇO
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-400 block">Total Ganhos</span>
+                            <span id="comp-almoco-ganhos" class="text-lg font-black text-emerald-400">R$ 0,00</span>
+                        </div>
+                        <div class="text-[11px] text-slate-400">
+                            KM: <strong id="comp-almoco-km" class="text-slate-200">0 km</strong>
+                        </div>
+                    </div>
+
+                    <!-- Jantar Card -->
+                    <div class="bg-slate-950 p-4 rounded-2xl border border-blue-500/20 space-y-2">
+                        <div class="flex items-center gap-1.5 text-xs font-black text-blue-400">
+                            <i class="fa-solid fa-moon"></i> JANTAR
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-400 block">Total Ganhos</span>
+                            <span id="comp-jantar-ganhos" class="text-lg font-black text-emerald-400">R$ 0,00</span>
+                        </div>
+                        <div class="text-[11px] text-slate-400">
+                            KM: <strong id="comp-jantar-km" class="text-slate-200">0 km</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Container -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4">
+                    <h3 class="text-xs font-extrabold text-slate-300 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-orange-500"></i> Divisão por Aplicativo
+                    </h3>
+                    <div class="relative h-52 flex items-center justify-center">
+                        <canvas id="chart-platforms"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4">
+                    <h3 class="text-xs font-extrabold text-slate-300 mb-3 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-column text-amber-400"></i> Desempenho Diário
+                    </h3>
+                    <div class="relative h-52">
+                        <canvas id="chart-timeline"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- SECTION 3: HISTORY LOGS -->
+        <section id="section-history" class="hidden space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-sm font-extrabold text-slate-300">Histórico Completo de Turnos</h2>
+                <span id="history-count" class="text-xs font-bold text-slate-400 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">0 registros</span>
+            </div>
+
+            <div id="history-list" class="space-y-3">
+                <!-- Dynamic cards injected here -->
+            </div>
+        </section>
+
+    </main>
+
+
+    <!-- MODAL 1: CONFIRMAÇÃO DE INÍCIO DE TURNO -->
+    <div id="modal-confirm-start" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-extrabold text-white text-base flex items-center gap-2">
+                    <i class="fa-solid fa-circle-play text-orange-500"></i> Confirmar Início de Turno
+                </h3>
+                <button onclick="closeModal('modal-confirm-start')" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="bg-slate-950 p-4 rounded-2xl space-y-2 border border-slate-800 text-sm">
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">Turno Selecionado:</span>
+                    <span id="start-conf-type" class="font-bold text-orange-400">Almoço</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">KM Inicial da Moto:</span>
+                    <span id="start-conf-km" class="font-bold text-cyan-400">0 KM</span>
+                </div>
+                <div class="flex justify-between py-1">
+                    <span class="text-slate-400">Hora de Início:</span>
+                    <span id="start-conf-time" class="font-bold text-slate-200">--:--</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-1">
+                <button onclick="closeModal('modal-confirm-start')" class="py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-sm transition">
+                    Voltar / Ajustar
+                </button>
+                <button onclick="executeStartShift()" class="py-3 bg-orange-600 hover:bg-orange-500 text-white font-extrabold rounded-xl text-sm transition shadow-lg shadow-orange-600/30">
+                    Confirmar e Iniciar
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MODAL 2: FINALIZAR TURNO (ENTRADA DE GANHOS & REGRA DO ACUMULADO) -->
+    <div id="modal-finish-shift" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-extrabold text-white text-base flex items-center gap-2">
+                    <i class="fa-solid fa-flag-checkered text-rose-500"></i> Finalizar Turno
+                </h3>
+                <button onclick="closeModal('modal-finish-shift')" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- KM Final Input -->
+            <div>
+                <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-1.5">
+                    1. KM de Retorno (Chegada)
+                </label>
+                <div class="relative">
+                    <input type="number" step="0.1" id="finish-km-end" placeholder="Ex: 45280" oninput="previewCumulativeCalc()" class="w-full bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-white font-extrabold text-base focus:outline-none focus:border-orange-500">
+                    <span class="absolute right-4 top-3 text-xs text-slate-500 font-bold">KM</span>
+                </div>
+            </div>
+
+            <!-- Mode Notice Header -->
+            <div id="finish-shift-mode-banner" class="p-3.5 rounded-2xl border text-xs leading-relaxed space-y-1">
+                <!-- Dynamic notice injected -->
+            </div>
+
+            <!-- Platform Earnings Inputs -->
+            <div class="space-y-3">
+                <label class="block text-xs font-extrabold uppercase tracking-wider text-slate-400">
+                    2. Informe os Ganhos do App
+                </label>
+
+                <!-- iFood -->
+                <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-xl bg-red-600/20 text-red-500 flex items-center justify-center font-black text-xs">iF</div>
+                        <span class="text-xs font-bold text-slate-200">iFood</span>
+                    </div>
+                    <div class="relative w-36">
+                        <span class="absolute left-3 top-2.5 text-xs text-slate-500">R$</span>
+                        <input type="number" step="0.01" min="0" id="finish-ganho-ifood" placeholder="0,00" oninput="previewCumulativeCalc()" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-8 pr-2 py-2 text-right text-white font-bold text-sm focus:border-orange-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- 99 -->
+                <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center font-black text-xs">99</div>
+                        <span class="text-xs font-bold text-slate-200">99 Moto / Food</span>
+                    </div>
+                    <div class="relative w-36">
+                        <span class="absolute left-3 top-2.5 text-xs text-slate-500">R$</span>
+                        <input type="number" step="0.01" min="0" id="finish-ganho-99" placeholder="0,00" oninput="previewCumulativeCalc()" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-8 pr-2 py-2 text-right text-white font-bold text-sm focus:border-orange-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Outros -->
+                <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-black text-xs">Out</div>
+                        <span class="text-xs font-bold text-slate-200">Outros / Particulares</span>
+                    </div>
+                    <div class="relative w-36">
+                        <span class="absolute left-3 top-2.5 text-xs text-slate-500">R$</span>
+                        <input type="number" step="0.01" min="0" id="finish-ganho-outros" placeholder="0,00" oninput="previewCumulativeCalc()" class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-8 pr-2 py-2 text-right text-white font-bold text-sm focus:border-orange-500 focus:outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview Calculation Summary Box -->
+            <div id="finish-preview-box" class="bg-slate-950 p-3.5 rounded-2xl border border-orange-500/30 space-y-1.5 text-xs">
+                <div class="flex justify-between text-slate-400">
+                    <span>Valor Lançado (App):</span>
+                    <strong id="prev-typed-total" class="text-slate-200">R$ 0,00</strong>
+                </div>
+                <div id="prev-row-deduction" class="flex justify-between text-slate-400 hidden">
+                    <span>(-) Faturamento do Almoço:</span>
+                    <strong id="prev-previous-shift" class="text-rose-400">- R$ 0,00</strong>
+                </div>
+                <div class="flex justify-between text-sm pt-1 border-t border-slate-800">
+                    <span class="font-bold text-white">Rendimento Deste Turno:</span>
+                    <strong id="prev-net-shift" class="font-extrabold text-emerald-400 text-base">R$ 0,00</strong>
+                </div>
+            </div>
+
+            <button onclick="openFinalConfirmationModal()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-2xl shadow-lg shadow-emerald-600/30 transition text-base">
+                AVANÇAR PARA CONFIRMAÇÃO
+            </button>
+        </div>
+    </div>
+
+
+    <!-- MODAL 3: CONFIRMAÇÃO FINAL DE DADOS DO TURNO -->
+    <div id="modal-final-confirm" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-extrabold text-white text-base flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard-check text-orange-500 text-lg"></i> Confirmar Envio de Dados
+                </h3>
+                <button onclick="closeModal('modal-final-confirm')" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-400">
+                Confira todas as informações antes de gravar o turno no histórico:
+            </p>
+
+            <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2 text-sm">
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">Turno / Data:</span>
+                    <span id="final-conf-shift-date" class="font-bold text-slate-200">Almoço - 24/10/2026</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">Tempo de Trabalho:</span>
+                    <span id="final-conf-duration" class="font-bold text-amber-400">3h 20m</span>
+                </div>
+                <div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">KM Percorridos:</span>
+                    <span id="final-conf-km" class="font-bold text-cyan-400">85 km</span>
+                </div>
+                <div class="flex justify-between py-1">
+                    <span class="text-slate-400">Ganho Real do Turno:</span>
+                    <span id="final-conf-net-earnings" class="font-black text-emerald-400 text-base">R$ 0,00</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button onclick="closeModal('modal-final-confirm')" class="py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-sm transition">
+                    Ajustar
+                </button>
+                <button onclick="commitSaveShift()" class="py-3 bg-orange-600 hover:bg-orange-500 text-white font-extrabold rounded-xl text-sm transition shadow-lg shadow-orange-600/30">
+                    Gravar Turno
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- MODAL 4: AJUSTES, EXTRAÇÃO E BACKUP -->
+    <div id="modal-settings" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 space-y-4 shadow-2xl">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-extrabold text-white text-base flex items-center gap-2">
+                    <i class="fa-solid fa-gear text-slate-400"></i> Extração de Dados & Backup
+                </h3>
+                <button onclick="closeModal('modal-settings')" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <!-- Export CSV -->
+                <button onclick="exportCSV()" class="w-full py-3.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-file-csv text-emerald-400 text-base"></i>
+                    <span>Exportar Excel (CSV)</span>
+                </button>
+
+                <!-- Demo Data -->
+                <button onclick="generateSampleData()" class="w-full py-3 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-amber-400 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span>Gerar Dados de Teste</span>
+                </button>
+
+                <!-- JSON Backup -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="exportJSON()" class="py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition">
+                        <i class="fa-solid fa-download"></i> Baixar Backup
+                    </button>
+                    <label class="py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition cursor-pointer">
+                        <i class="fa-solid fa-upload"></i> Restaurar
+                        <input type="file" accept=".json" onchange="importJSON(event)" class="hidden">
+                    </label>
+                </div>
+
+                <!-- Clear Data -->
+                <button onclick="clearAllData()" class="w-full py-2.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 text-rose-400 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition mt-3">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>Apagar Todos os Registros</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-700 text-white px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-bold hidden items-center gap-2 z-50 transition-all duration-300">
+        <i id="toast-icon" class="fa-solid fa-circle-info text-orange-500"></i>
+        <span id="toast-msg">Notificação</span>
+    </div>
+
+
+    <!-- JAVASCRIPT APP ENGINE -->
+    <script>
+        const STORAGE_SHIFTS_KEY = 'motoboy_pro_shifts_v2';
+        const STORAGE_ACTIVE_KEY = 'motoboy_pro_active_shift_v2';
+
+        let shifts = [];
+        let activeShift = null;
+        let timerInterval = null;
+        let currentPeriod = 'today';
+        let selectedShiftType = 'Almoço';
+
+        // Temporary object while finishing shift
+        let pendingFinishShift = null;
+
+        let platformChartInstance = null;
+        let timelineChartInstance = null;
+
+        window.onload = function() {
+            // Set current date string
+            const todayStr = new Date().toLocaleDateString('pt-BR');
+            document.getElementById('display-current-date').innerText = todayStr;
+
+            loadShifts();
+            loadActiveShift();
+            updateLastKmHint();
+            renderTodayShiftsList();
+        };
+
+        // Load finished shifts from storage
+        function loadShifts() {
+            try {
+                const stored = localStorage.getItem(STORAGE_SHIFTS_KEY);
+                shifts = stored ? JSON.parse(stored) : [];
+                shifts.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+            } catch (e) {
+                shifts = [];
+            }
+        }
+
+        function saveShifts() {
+            try {
+                shifts.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+                localStorage.setItem(STORAGE_SHIFTS_KEY, JSON.stringify(shifts));
+                renderTodayShiftsList();
+                updateLastKmHint();
+                if (!document.getElementById('section-reports').classList.contains('hidden')) {
+                    renderReports();
+                }
+            } catch (e) {
+                showToast("Erro ao salvar dados localmente.", "error");
+            }
+        }
+
+        // Active Shift Persistence
+        function loadActiveShift() {
+            try {
+                const stored = localStorage.getItem(STORAGE_ACTIVE_KEY);
+                activeShift = stored ? JSON.parse(stored) : null;
+            } catch (e) {
+                activeShift = null;
+            }
+
+            if (activeShift) {
+                showRunningShiftCard();
+                startLiveTimer();
+            } else {
+                showStartShiftCard();
+            }
+        }
+
+        function saveActiveShift() {
+            if (activeShift) {
+                localStorage.setItem(STORAGE_ACTIVE_KEY, JSON.stringify(activeShift));
+            } else {
+                localStorage.removeItem(STORAGE_ACTIVE_KEY);
+            }
+        }
+
+        // Shift Selection UI Handler
+        function selectShiftType(type) {
+            selectedShiftType = type;
+            document.querySelectorAll('.shift-type-btn').forEach(btn => {
+                btn.className = "shift-type-btn py-3 px-2 rounded-2xl border font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition bg-slate-800 border-slate-700 text-slate-400 hover:text-white";
+            });
+
+            if (type === 'Almoço') {
+                document.getElementById('btn-shift-almoco').className = "shift-type-btn py-3 px-2 rounded-2xl border font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition bg-orange-600/20 border-orange-500 text-orange-400";
+            } else if (type === 'Jantar') {
+                document.getElementById('btn-shift-jantar').className = "shift-type-btn py-3 px-2 rounded-2xl border font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition bg-blue-600/20 border-blue-500 text-blue-400";
+            } else {
+                document.getElementById('btn-shift-outro').className = "shift-type-btn py-3 px-2 rounded-2xl border font-bold text-xs flex flex-col items-center justify-center gap-1.5 transition bg-purple-600/20 border-purple-500 text-purple-400";
+            }
+        }
+
+        // Auto-fill hint for starting KM
+        function updateLastKmHint() {
+            const hintEl = document.getElementById('last-km-hint');
+            if (shifts.length > 0) {
+                const lastKm = shifts[0].kmEnd || 0;
+                if (lastKm > 0) {
+                    hintEl.innerText = `Último KM final: ${lastKm}`;
+                    if (!document.getElementById('input-km-start').value) {
+                        document.getElementById('input-km-start').value = lastKm;
+                    }
+                }
+            } else {
+                hintEl.innerText = '';
+            }
+        }
+
+        // START SHIFT FLOW
+        function confirmStartShiftModal() {
+            const kmStart = parseFloat(document.getElementById('input-km-start').value);
+            if (!kmStart || kmStart <= 0) {
+                showToast("Por favor, digite o KM inicial da moto!", "warning");
+                return;
+            }
+
+            document.getElementById('start-conf-type').innerText = selectedShiftType;
+            document.getElementById('start-conf-km').innerText = kmStart + ' KM';
+            document.getElementById('start-conf-time').innerText = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+            document.getElementById('modal-confirm-start').classList.remove('hidden');
+        }
+
+        function executeStartShift() {
+            const kmStart = parseFloat(document.getElementById('input-km-start').value);
+            const now = new Date();
+
+            activeShift = {
+                id: Date.now().toString(),
+                type: selectedShiftType,
+                date: now.toISOString().split('T')[0],
+                startTime: now.toISOString(),
+                kmStart: kmStart
+            };
+
+            saveActiveShift();
+            closeModal('modal-confirm-start');
+            showRunningShiftCard();
+            startLiveTimer();
+
+            showToast(`Turno do ${selectedShiftType} iniciado!`, "success");
+        }
+
+        function showRunningShiftCard() {
+            document.getElementById('card-start-shift').classList.add('hidden');
+            document.getElementById('card-running-shift').classList.remove('hidden');
+
+            document.getElementById('running-shift-title').innerText = `TURNO DO ${activeShift.type.toUpperCase()}`;
+            document.getElementById('running-shift-date').innerText = formatDateBR(activeShift.date);
+            document.getElementById('live-start-time').innerText = new Date(activeShift.startTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('live-km-start').innerText = activeShift.kmStart + ' KM';
+        }
+
+        function showStartShiftCard() {
+            document.getElementById('card-start-shift').classList.remove('hidden');
+            document.getElementById('card-running-shift').classList.add('hidden');
+            if (timerInterval) clearInterval(timerInterval);
+        }
+
+        function startLiveTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+
+            function updateTimer() {
+                if (!activeShift) return;
+                const start = new Date(activeShift.startTime);
+                const now = new Date();
+                const diffMs = now - start;
+
+                const hrs = Math.floor(diffMs / (1000 * 60 * 60));
+                const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                const secs = Math.floor((diffMs % (1000 * 60)) / 1000);
+
+                document.getElementById('live-timer').innerText = 
+                    `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }
+
+            updateTimer();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        // FINISH SHIFT FLOW
+        function openFinishShiftModal() {
+            if (!activeShift) return;
+
+            // Reset modal inputs
+            document.getElementById('finish-km-end').value = '';
+            document.getElementById('finish-ganho-ifood').value = '';
+            document.getElementById('finish-ganho-99').value = '';
+            document.getElementById('finish-ganho-outros').value = '';
+
+            // Check if this is an evening shift where cumulative calculation applies
+            const todayShifts = shifts.filter(s => s.date === activeShift.date);
+            const banner = document.getElementById('finish-shift-mode-banner');
+
+            if (activeShift.type === 'Jantar' || todayShifts.length > 0) {
+                banner.className = "p-3.5 rounded-2xl border text-xs leading-relaxed space-y-1 bg-amber-500/10 border-amber-500/30 text-amber-200";
+                banner.innerHTML = `
+                    <div class="font-extrabold text-amber-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-calculator"></i> MODO ACUMULADO ATIVO
+                    </div>
+                    <p>Digite os valores **TOTAIS** que o app do iFood/99 mostra agora na tela no fim do dia. O sistema descontará automaticamente os ganhos do Almoço!</p>
+                `;
+            } else {
+                banner.className = "p-3.5 rounded-2xl border text-xs leading-relaxed space-y-1 bg-slate-950 border-slate-800 text-slate-300";
+                banner.innerHTML = `
+                    <div class="font-bold text-slate-200 flex items-center gap-1.5">
+                        <i class="fa-solid fa-coins text-emerald-400"></i> LANÇAMENTO DIRETO
+                    </div>
+                    <p>Digite quanto você fez neste turno.</p>
+                `;
+            }
+
+            previewCumulativeCalc();
+            document.getElementById('modal-finish-shift').classList.remove('hidden');
+        }
+
+        // Cumulative Preview Engine
+        function previewCumulativeCalc() {
+            if (!activeShift) return;
+
+            const typedIfood = parseFloat(document.getElementById('finish-ganho-ifood').value) || 0;
+            const typed99 = parseFloat(document.getElementById('finish-ganho-99').value) || 0;
+            const typedOutros = parseFloat(document.getElementById('finish-ganho-outros').value) || 0;
+            const typedTotal = typedIfood + typed99 + typedOutros;
+
+            // Calculate earnings of previous shifts on the same day
+            const todayShifts = shifts.filter(s => s.date === activeShift.date);
+            let prevIfood = 0, prev99 = 0, prevOutros = 0, prevTotal = 0;
+
+            todayShifts.forEach(s => {
+                prevIfood += s.earnings.ifood;
+                prev99 += s.earnings.u99;
+                prevOutros += s.earnings.outros;
+                prevTotal += s.earnings.netTotal;
+            });
+
+            let netIfood = typedIfood;
+            let net99 = typed99;
+            let netOutros = typedOutros;
+            let netTotal = typedTotal;
+
+            const rowDeduction = document.getElementById('prev-row-deduction');
+
+            // Apply cumulative subtraction if there are previous shifts today
+            if (todayShifts.length > 0 && typedTotal >= prevTotal) {
+                netIfood = Math.max(0, typedIfood - prevIfood);
+                net99 = Math.max(0, typed99 - prev99);
+                netOutros = Math.max(0, typedOutros - prevOutros);
+                netTotal = typedTotal - prevTotal;
+
+                rowDeduction.classList.remove('hidden');
+                document.getElementById('prev-previous-shift').innerText = `- ${formatCurrency(prevTotal)}`;
+            } else {
+                rowDeduction.classList.add('hidden');
+            }
+
+            document.getElementById('prev-typed-total').innerText = formatCurrency(typedTotal);
+            document.getElementById('prev-net-shift').innerText = formatCurrency(netTotal);
+
+            const kmEnd = parseFloat(document.getElementById('finish-km-end').value) || 0;
+
+            pendingFinishShift = {
+                ...activeShift,
+                endTime: new Date().toISOString(),
+                kmEnd: kmEnd,
+                kmTotal: kmEnd > activeShift.kmStart ? (kmEnd - activeShift.kmStart) : 0,
+                earnings: {
+                    typedTotal,
+                    netTotal,
+                    ifood: netIfood,
+                    u99: net99,
+                    outros: netOutros
+                }
+            };
+        }
+
+        // Open Final Pre-Submit Confirmation
+        function openFinalConfirmationModal() {
+            if (!pendingFinishShift) return;
+
+            if (pendingFinishShift.kmEnd <= pendingFinishShift.kmStart) {
+                showToast("O KM final deve ser maior que o KM inicial!", "warning");
+                return;
+            }
+
+            // Duration calculation
+            const start = new Date(pendingFinishShift.startTime);
+            const end = new Date(pendingFinishShift.endTime);
+            const diffMins = Math.round((end - start) / (1000 * 60));
+            const hrs = Math.floor(diffMins / 60);
+            const mins = diffMins % 60;
+
+            pendingFinishShift.durationMinutes = diffMins;
+
+            document.getElementById('final-conf-shift-date').innerText = `${pendingFinishShift.type} - ${formatDateBR(pendingFinishShift.date)}`;
+            document.getElementById('final-conf-duration').innerText = `${hrs}h ${mins}m`;
+            document.getElementById('final-conf-km').innerText = `${pendingFinishShift.kmTotal.toFixed(1)} km`;
+            document.getElementById('final-conf-net-earnings').innerText = formatCurrency(pendingFinishShift.earnings.netTotal);
+
+            closeModal('modal-finish-shift');
+            document.getElementById('modal-final-confirm').classList.remove('hidden');
+        }
+
+        // Save Shift into Permanent Storage
+        function commitSaveShift() {
+            if (!pendingFinishShift) return;
+
+            shifts.push(pendingFinishShift);
+            saveShifts();
+
+            activeShift = null;
+            saveActiveShift();
+
+            closeModal('modal-final-confirm');
+            showStartShiftCard();
+
+            showToast("Turno salvo com sucesso no histórico!", "success");
+        }
+
+        // Render List of Today's Completed Shifts
+        function renderTodayShiftsList() {
+            const container = document.getElementById('today-shifts-list');
+            const countEl = document.getElementById('today-shifts-count');
+            container.innerHTML = '';
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            const todayShifts = shifts.filter(s => s.date === todayStr);
+
+            countEl.innerText = `${todayShifts.length} turno(s)`;
+
+            if (todayShifts.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500 py-3 text-center">Nenhum turno concluído hoje ainda.</p>`;
+                return;
+            }
+
+            todayShifts.forEach(s => {
+                const item = document.createElement('div');
+                item.className = "bg-slate-950 p-3 rounded-2xl border border-slate-800 flex items-center justify-between text-xs";
+                
+                const hrs = Math.floor(s.durationMinutes / 60);
+                const mins = s.durationMinutes % 60;
+
+                item.innerHTML = `
+                    <div class="space-y-0.5">
+                        <div class="font-bold text-slate-200 flex items-center gap-1.5">
+                            <span class="${s.type === 'Almoço' ? 'text-orange-400' : 'text-blue-400'}">${s.type}</span>
+                            <span class="text-slate-500">•</span>
+                            <span class="text-slate-400 font-normal">${hrs}h ${mins}m</span>
+                        </div>
+                        <div class="text-[11px] text-slate-400">
+                            KM: <strong class="text-cyan-400">${s.kmTotal} km</strong>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-black text-emerald-400 text-sm block">${formatCurrency(s.earnings.netTotal)}</span>
+                    </div>
+                `;
+
+                container.appendChild(item);
+            });
+        }
+
+        // Render History Tab
+        function renderHistory() {
+            const container = document.getElementById('history-list');
+            const countEl = document.getElementById('history-count');
+            container.innerHTML = '';
+
+            countEl.innerText = `${shifts.length} turno(s)`;
+
+            if (shifts.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10 bg-slate-900/40 rounded-3xl border border-slate-800">
+                        <i class="fa-solid fa-motorcycle text-4xl text-slate-700 mb-2"></i>
+                        <p class="text-slate-400 text-xs">Nenhum turno registrado no histórico.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            shifts.forEach(s => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3";
+
+                const hrs = Math.floor(s.durationMinutes / 60);
+                const mins = s.durationMinutes % 60;
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <div class="flex items-center gap-2">
+                            <span class="font-black text-slate-100 text-sm">${formatDateBR(s.date)}</span>
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-full border ${s.type === 'Almoço' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}">${s.type}</span>
+                        </div>
+                        <button onclick="deleteShift('${s.id}')" class="text-xs text-rose-400 hover:text-rose-300 p-1">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <div class="bg-slate-950 p-2 rounded-xl">
+                            <span class="text-slate-400 block mb-0.5 text-[10px]">Rendimento</span>
+                            <strong class="text-emerald-400 text-sm">${formatCurrency(s.earnings.netTotal)}</strong>
+                        </div>
+                        <div class="bg-slate-950 p-2 rounded-xl">
+                            <span class="text-slate-400 block mb-0.5 text-[10px]">Distância</span>
+                            <strong class="text-cyan-400 text-sm">${s.kmTotal} km</strong>
+                        </div>
+                        <div class="bg-slate-950 p-2 rounded-xl">
+                            <span class="text-slate-400 block mb-0.5 text-[10px]">Duração</span>
+                            <strong class="text-amber-400 text-sm">${hrs}h ${mins}m</strong>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        function deleteShift(id) {
+            if (confirm("Deseja apagar este turno do histórico?")) {
+                shifts = shifts.filter(s => s.id !== id);
+                saveShifts();
+                renderHistory();
+                showToast("Turno removido.", "info");
+            }
+        }
+
+        // REPORTS & PERIOD ANALYTICS
+        function setReportPeriod(period) {
+            currentPeriod = period;
+            document.querySelectorAll('.period-btn').forEach(btn => {
+                btn.className = "period-btn px-4 py-2 rounded-xl text-xs font-extrabold transition bg-slate-800 text-slate-300 hover:bg-slate-700";
+            });
+            document.getElementById(`period-${period}`).className = "period-btn px-4 py-2 rounded-xl text-xs font-extrabold transition bg-orange-600 text-white shadow";
+            renderReports();
+        }
+
+        function renderReports() {
+            const filtered = filterShiftsByPeriod(currentPeriod);
+
+            let totalG = 0, totalKm = 0, totalMins = 0;
+            let almocoG = 0, almocoKm = 0;
+            let jantarG = 0, jantarKm = 0;
+
+            let platformTotals = { ifood: 0, u99: 0, outros: 0 };
+
+            filtered.forEach(s => {
+                totalG += s.earnings.netTotal;
+                totalKm += s.kmTotal;
+                totalMins += s.durationMinutes;
+
+                platformTotals.ifood += s.earnings.ifood || 0;
+                platformTotals.u99 += s.earnings.u99 || 0;
+                platformTotals.outros += s.earnings.outros || 0;
+
+                if (s.type === 'Almoço') {
+                    almocoG += s.earnings.netTotal;
+                    almocoKm += s.kmTotal;
+                } else if (s.type === 'Jantar') {
+                    jantarG += s.earnings.netTotal;
+                    jantarKm += s.kmTotal;
+                }
+            });
+
+            const totalHours = totalMins / 60;
+            const rendimentoHora = totalHours > 0 ? (totalG / totalHours) : 0;
+
+            document.getElementById('rep-total-ganhos').innerText = formatCurrency(totalG);
+            document.getElementById('rep-total-km').innerText = `${totalKm.toFixed(1)} km`;
+
+            const hrs = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
+            document.getElementById('rep-total-horas').innerText = `${hrs}h ${mins}m`;
+            document.getElementById('rep-rendimento-hora').innerText = `${formatCurrency(rendimentoHora)}/h`;
+
+            // Comparison
+            document.getElementById('comp-almoco-ganhos').innerText = formatCurrency(almocoG);
+            document.getElementById('comp-almoco-km').innerText = `${almocoKm.toFixed(1)} km`;
+
+            document.getElementById('comp-jantar-ganhos').innerText = formatCurrency(jantarG);
+            document.getElementById('comp-jantar-km').innerText = `${jantarKm.toFixed(1)} km`;
+
+            renderPlatformChart(platformTotals);
+            renderTimelineChart(filtered);
+        }
+
+        function filterShiftsByPeriod(period) {
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0];
+
+            return shifts.filter(s => {
+                const sDate = new Date(s.date + 'T00:00:00');
+                if (period === 'today') return s.date === todayStr;
+                if (period === 'week') {
+                    const oneWeekAgo = new Date(now);
+                    oneWeekAgo.setDate(now.getDate() - 7);
+                    return sDate >= oneWeekAgo;
+                }
+                if (period === 'month') return sDate.getMonth() === now.getMonth() && sDate.getFullYear() === now.getFullYear();
+                if (period === 'year') return sDate.getFullYear() === now.getFullYear();
+                return true;
+            });
+        }
+
+        function renderPlatformChart(totals) {
+            const ctx = document.getElementById('chart-platforms').getContext('2d');
+            if (platformChartInstance) platformChartInstance.destroy();
+
+            platformChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['iFood', '99', 'Outros'],
+                    datasets: [{
+                        data: [totals.ifood, totals.u99, totals.outros],
+                        backgroundColor: ['#ea1d2c', '#ffa100', '#3b82f6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11, weight: 'bold' } } }
+                    }
+                }
+            });
+        }
+
+        function renderTimelineChart(filteredData) {
+            const ctx = document.getElementById('chart-timeline').getContext('2d');
+            if (timelineChartInstance) timelineChartInstance.destroy();
+
+            const chronological = [...filteredData].reverse();
+            const labels = chronological.map(s => `${formatDateShort(s.date)} (${s.type[0]})`);
+            const values = chronological.map(s => s.earnings.netTotal);
+
+            timelineChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Ganhos (R$)',
+                        data: values,
+                        backgroundColor: '#f97316',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { ticks: { color: '#94a3b8', font: { size: 9 } }, grid: { display: false } },
+                        y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#1e293b' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // WhatsApp Resumo
+        function shareWhatsAppReport() {
+            const filtered = filterShiftsByPeriod(currentPeriod);
+            if (filtered.length === 0) {
+                showToast("Sem dados para enviar!", "warning");
+                return;
+            }
+
+            let totalG = 0, totalKm = 0, totalMins = 0;
+            filtered.forEach(s => {
+                totalG += s.earnings.netTotal;
+                totalKm += s.kmTotal;
+                totalMins += s.durationMinutes;
+            });
+
+            const hrs = Math.floor(totalMins / 60);
+            const mins = totalMins % 60;
+            const hrsDec = totalMins / 60;
+            const rendHora = hrsDec > 0 ? (totalG / hrsDec) : 0;
+
+            const text = `🛵 *MOTOBOY PRO - RESUMO DE TURNOS*\n` +
+                         `------------------------------------\n` +
+                         `💰 *Faturamento Total:* ${formatCurrency(totalG)}\n` +
+                         `🚀 *KM Rodados:* ${totalKm.toFixed(1)} km\n` +
+                         `⏱️ *Tempo Trabalhado:* ${hrs}h ${mins}m\n` +
+                         `⚡ *Rendimento/Hora:* ${formatCurrency(rendHora)}/h\n` +
+                         `------------------------------------\n` +
+                         `🔥 _Bora pra cima!_`;
+
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+        // CSV Export
+        function exportCSV() {
+            if (shifts.length === 0) {
+                showToast("Nenhum registro no histórico!", "warning");
+                return;
+            }
+
+            let csv = "Data,Turno,Duracao_Minutos,KM_Start,KM_End,KM_Total,iFood,99,Outros,Ganhos_Liquidos\n";
+            shifts.forEach(s => {
+                csv += `${s.date},${s.type},${s.durationMinutes},${s.kmStart},${s.kmEnd},${s.kmTotal},${s.earnings.ifood},${s.earnings.u99},${s.earnings.outros},${s.earnings.netTotal}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `motoboy_turnos_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            showToast("Relatório CSV gerado!", "success");
+        }
+
+        // JSON Backup / Import
+        function exportJSON() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(shifts, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `motoboy_backup_${new Date().toISOString().split('T')[0]}.json`);
+            dlAnchor.click();
+        }
+
+        function importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        shifts = imported;
+                        saveShifts();
+                        closeModal('modal-settings');
+                        showToast("Backup restaurado com sucesso!", "success");
+                    }
+                } catch (err) {
+                    showToast("Arquivo JSON inválido.", "error");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Demo Data Generator
+        function generateSampleData() {
+            const samples = [];
+            const today = new Date();
+
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(today.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0];
+
+                // Almoco
+                samples.push({
+                    id: 'sample-a-' + i,
+                    type: 'Almoço',
+                    date: dateStr,
+                    startTime: `${dateStr}T11:00:00.000Z`,
+                    endTime: `${dateStr}T14:30:00.000Z`,
+                    durationMinutes: 210,
+                    kmStart: 45000 + (5 - i) * 100,
+                    kmEnd: 45000 + (5 - i) * 100 + 45,
+                    kmTotal: 45,
+                    earnings: { typedTotal: 65, netTotal: 65, ifood: 45, u99: 20, outros: 0 }
+                });
+
+                // Jantar
+                samples.push({
+                    id: 'sample-j-' + i,
+                    type: 'Jantar',
+                    date: dateStr,
+                    startTime: `${dateStr}T18:00:00.000Z`,
+                    endTime: `${dateStr}T22:30:00.000Z`,
+                    durationMinutes: 270,
+                    kmStart: 45000 + (5 - i) * 100 + 45,
+                    kmEnd: 45000 + (5 - i) * 100 + 105,
+                    kmTotal: 60,
+                    earnings: { typedTotal: 150, netTotal: 85, ifood: 55, u99: 30, outros: 0 }
+                });
+            }
+
+            shifts = samples;
+            saveShifts();
+            closeModal('modal-settings');
+            showToast("Dados de demonstração criados!", "success");
+        }
+
+        function clearAllData() {
+            if (confirm("Deseja apagar todos os turnos registrados?")) {
+                shifts = [];
+                activeShift = null;
+                saveShifts();
+                saveActiveShift();
+                showStartShiftCard();
+                closeModal('modal-settings');
+                showToast("Todos os registros foram apagados.", "info");
+            }
+        }
+
+        // Tab Switcher UI
+        function switchTab(tab) {
+            document.getElementById('section-shift').classList.add('hidden');
+            document.getElementById('section-reports').classList.add('hidden');
+            document.getElementById('section-history').classList.add('hidden');
+
+            ['shift', 'reports', 'history'].forEach(t => {
+                document.getElementById(`tab-btn-${t}`).className = "flex-1 py-3 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 text-slate-400 hover:text-white";
+            });
+
+            document.getElementById(`section-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tab}`).className = "flex-1 py-3 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 bg-orange-600 text-white shadow-md";
+
+            if (tab === 'reports') renderReports();
+            if (tab === 'history') renderHistory();
+        }
+
+        // Modal Helpers
+        function openSettingsModal() { document.getElementById('modal-settings').classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        // Formatting Helpers
+        function formatCurrency(v) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0); }
+        function formatDateBR(s) { if (!s) return ''; const p = s.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; }
+        function formatDateShort(s) { if (!s) return ''; const p = s.split('-'); return `${p[2]}/${p[1]}`; }
+
+        // Toast Helper
+        function showToast(msg, type = "info") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-msg');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.innerText = msg;
+            if (type === "success") toastIcon.className = "fa-solid fa-circle-check text-emerald-400";
+            else if (type === "warning") toastIcon.className = "fa-solid fa-triangle-exclamation text-amber-400";
+            else toastIcon.className = "fa-solid fa-circle-info text-cyan-400";
+
+            toast.classList.remove('hidden');
+            toast.classList.add('flex');
+            setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('flex'); }, 3000);
+        }
+    </script>
+</body>
+</html>
